@@ -27,19 +27,19 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
 
-    - name: Build, tag, and push docker image to Amazon ECR
-      env:
-        REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        REPOSITORY: primuslearning
-        IMAGE_TAG: latest
-      run: |
-        docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
-        docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+    - name: Checkout Repository
+      uses: actions/checkout@v2
 
-    - name: Update kube config
-      run: aws eks update-kubeconfig --name springboot
-    
-    - name: Deploy to EKS
+    - name: Docker Image Build and upload to ECR
       run: |
-        kubectl apply -f deployment.yaml
-        kubectl apply -f service.yaml
+        echo "Building Docker Image"
+        docker build -t primuslearning:latest .
+          
+        echo "Succesfully built image ---- Pushing to ECR"
+        docker tag primuslearning:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/primuslearning:latest
+        docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/primuslearning:latest
+
+    - name: Deployment to EKS
+      run: |
+        aws eks --region ${{ secrets.AWS_REGION }} update-kubeconfig --name springboot
+        kubectl rollout restart deploy primuslearning
